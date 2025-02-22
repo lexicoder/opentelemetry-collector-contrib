@@ -30,11 +30,34 @@ const (
 	projectAttribute        = "cloudtrace.project_id"
 )
 
+// traceClient is an interface that wraps the Cloud Trace client methods we use
+type traceClient interface {
+	GetTrace(ctx context.Context, projectID, traceID string) (*tracepb.Trace, error)
+	Close() error
+}
+
+// cloudTraceClientWrapper wraps the Cloud Trace client to implement our interface
+type cloudTraceClientWrapper struct {
+	client *trace.Client
+}
+
+func (w *cloudTraceClientWrapper) GetTrace(ctx context.Context, projectID, traceID string) (*tracepb.Trace, error) {
+	req := &tracepb.GetTraceRequest{
+		ProjectId: projectID,
+		TraceId:   traceID,
+	}
+	return w.client.GetTrace(ctx, req)
+}
+
+func (w *cloudTraceClientWrapper) Close() error {
+	return w.client.Close()
+}
+
 type cloudTraceProcessor struct {
 	logger       *zap.Logger
 	config       *Config
 	nextConsumer consumer.Traces
-	client       *trace.Client
+	client       traceClient
 	cache        *lru.Cache
 	lock         sync.RWMutex
 	metrics      *metricsReporter
@@ -60,7 +83,7 @@ func newProcessor(logger *zap.Logger, config *Config, nextConsumer consumer.Trac
 		logger:       logger,
 		config:       config,
 		nextConsumer: nextConsumer,
-		client:       client,
+		client:       &cloudTraceClientWrapper{client: client},
 		cache:        lru.New(config.CacheSize),
 	}
 
@@ -148,12 +171,7 @@ func (p *cloudTraceProcessor) enrichSpan(ctx context.Context, span ptrace.Span) 
 
 	// Fetch from Cloud Trace API
 	atomic.AddInt64(&p.apiCalls, 1)
-	req := &tracepb.GetTraceRequest{
-		ProjectId: p.config.ProjectID,
-		TraceId:   traceID,
-	}
-
-	trace, err := p.client.GetTrace(ctx, req)
+	trace, err := p.client.GetTrace(ctx, p.config.ProjectID, traceID)
 	if err != nil {
 		atomic.AddInt64(&p.apiErrors, 1)
 		return fmt.Errorf("failed to get trace from Cloud Trace: %w", err)

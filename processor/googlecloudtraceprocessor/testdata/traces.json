@@ -1,0 +1,57 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "test-service"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "test-scope"
+          },
+          "spans": [
+            {
+              "traceId": "0123456789abcdef0123456789abcdef",
+              "spanId": "0123456789abcdef",
+              "name": "test-span",
+              "kind": 1,
+              "startTimeUnixNano": "1644424800000000000",
+              "endTimeUnixNano": "1644424801000000000",
+              "attributes": [
+                {
+                  "key": "traceparent",
+                  "value": {
+                    "stringValue": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+                  }
+                }
+              ]
+            },
+            {
+              "traceId": "fedcba9876543210fedcba9876543210",
+              "spanId": "fedcba9876543210",
+              "name": "test-span-2",
+              "kind": 1,
+              "startTimeUnixNano": "1644424800000000000",
+              "endTimeUnixNano": "1644424801000000000",
+              "attributes": [
+                {
+                  "key": "x-cloud-trace-context",
+                  "value": {
+                    "stringValue": "fedcba9876543210fedcba9876543210/fedcba9876543210"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

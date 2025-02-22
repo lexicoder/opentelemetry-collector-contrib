@@ -1,0 +1,19 @@
+{
+  "projectId": "test-project",
+  "traceId": "0123456789abcdef0123456789abcdef",
+  "spans": [
+    {
+      "spanId": "0123456789abcdef",
+      "name": "test-span",
+      "startTime": "2022-02-09T20:00:00Z",
+      "endTime": "2022-02-09T20:00:01Z",
+      "labels": {
+        "http.method": "GET",
+        "http.url": "https://example.com/api",
+        "http.status_code": "200",
+        "cloud.region": "us-central1",
+        "service.version": "1.0.0"
+      }
+    }
+  ]
+}

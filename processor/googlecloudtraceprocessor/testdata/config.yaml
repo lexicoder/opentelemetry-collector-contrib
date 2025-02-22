@@ -1,0 +1,35 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: localhost:4317
+
+processors:
+  googlecloudtrace:
+    project_id: test-project
+    credentials_file: /path/to/credentials.json
+    prefer_traceparent: true
+    cache_size: 1000
+    cache_ttl: 5m
+  googlecloudtrace/2:
+    project_id: test-project-2
+    prefer_traceparent: false
+    cache_size: 2000
+    cache_ttl: 10m
+
+exporters:
+  otlp:
+    endpoint: localhost:4318
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [googlecloudtrace]
+      exporters: [otlp]
+    traces/2:
+      receivers: [otlp]
+      processors: [googlecloudtrace/2]
+      exporters: [otlp] 

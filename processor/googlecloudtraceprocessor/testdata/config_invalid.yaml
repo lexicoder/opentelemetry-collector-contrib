@@ -1,0 +1,35 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: localhost:4317
+
+processors:
+  googlecloudtrace:
+    # Missing required project_id
+    prefer_traceparent: true
+    cache_size: 1000
+    cache_ttl: 5m
+  googlecloudtrace/invalid_cache:
+    project_id: test-project
+    prefer_traceparent: true
+    cache_size: -1 # Invalid cache size
+    cache_ttl: 5m
+  googlecloudtrace/invalid_ttl:
+    project_id: test-project
+    prefer_traceparent: true
+    cache_size: 1000
+    cache_ttl: 0s # Invalid TTL
+
+exporters:
+  otlp:
+    endpoint: localhost:4318
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [googlecloudtrace]
+      exporters: [otlp]
