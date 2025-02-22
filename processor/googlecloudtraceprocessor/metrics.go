@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package cloudtraceenrichment
+package googlecloudtraceprocessor
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func newMetricsReporter(logger *zap.Logger, meter metric.Meter, processor *cloud
 
 	// Create metrics
 	if r.apiCallsCounter, err = meter.Int64Counter(
-		"cloudtraceenrichment.api_calls",
+		"googlecloudtrace.api_calls",
 		metric.WithDescription("The number of Cloud Trace API calls made"),
 		metric.WithUnit("{calls}"),
 	); err != nil {
@@ -45,7 +45,7 @@ func newMetricsReporter(logger *zap.Logger, meter metric.Meter, processor *cloud
 	}
 
 	if r.spansEnrichedCounter, err = meter.Int64Counter(
-		"cloudtraceenrichment.spans_enriched",
+		"googlecloudtrace.spans_enriched",
 		metric.WithDescription("The number of spans that were successfully enriched"),
 		metric.WithUnit("{spans}"),
 	); err != nil {
@@ -53,7 +53,7 @@ func newMetricsReporter(logger *zap.Logger, meter metric.Meter, processor *cloud
 	}
 
 	if r.apiErrorsCounter, err = meter.Int64Counter(
-		"cloudtraceenrichment.api_errors",
+		"googlecloudtrace.api_errors",
 		metric.WithDescription("The number of Cloud Trace API errors encountered"),
 		metric.WithUnit("{errors}"),
 	); err != nil {
@@ -61,7 +61,7 @@ func newMetricsReporter(logger *zap.Logger, meter metric.Meter, processor *cloud
 	}
 
 	if r.enrichmentLatency, err = meter.Float64Histogram(
-		"cloudtraceenrichment.enrichment_latency",
+		"googlecloudtrace.enrichment_latency",
 		metric.WithDescription("The latency of enrichment operations"),
 		metric.WithUnit("ms"),
 	); err != nil {

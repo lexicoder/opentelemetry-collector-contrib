@@ -1,6 +1,6 @@
-# Cloud Trace Enrichment Processor
+# Google Cloud Trace Processor
 
-The Cloud Trace Enrichment processor is designed to enrich trace data by retrieving additional details from the Google Cloud Trace API. It examines incoming spans for trace context headers—specifically `traceparent` and `X-Cloud-Trace-Context`—and uses the associated information to pull external data for enrichment.
+The Google Cloud Trace processor is designed to enrich trace data by retrieving additional details from the Google Cloud Trace API. It examines incoming spans for trace context headers—specifically `traceparent` and `X-Cloud-Trace-Context`—and uses the associated information to pull external data for enrichment.
 
 ## Configuration
 
@@ -16,7 +16,7 @@ Example configuration:
 
 ```yaml
 processors:
-  cloudtraceenrichment:
+  googlecloudtrace:
     project_id: my-gcp-project
     credentials_file: /path/to/credentials.json
     prefer_traceparent: true
@@ -28,16 +28,16 @@ processors:
 
 The following metrics are emitted by the processor:
 
-| Metric                                    | Type      | Description                                  |
-| ----------------------------------------- | --------- | -------------------------------------------- |
-| `cloudtraceenrichment.api_calls`          | Counter   | Number of Cloud Trace API calls made         |
-| `cloudtraceenrichment.spans_enriched`     | Counter   | Number of spans successfully enriched        |
-| `cloudtraceenrichment.api_errors`         | Counter   | Number of Cloud Trace API errors encountered |
-| `cloudtraceenrichment.enrichment_latency` | Histogram | Latency of enrichment operations             |
+| Metric                                | Type    | Description                                  |
+| ------------------------------------- | ------- | -------------------------------------------- |
+| `googlecloudtrace.api_calls`          | Counter | Number of Cloud Trace API calls made         |
+| `googlecloudtrace.spans_enriched`     | Counter | Number of spans successfully enriched        |
+| `googlecloudtrace.api_errors`         | Counter | Number of Cloud Trace API errors encountered |
+| `googlecloudtrace.enrichment_latency` | Gauge   | Latency of enrichment operations             |
 
 ## Example Pipeline
 
-Here's an example pipeline configuration that uses the Cloud Trace Enrichment processor along with the OpenTelemetry Collector's batch processor:
+Here's an example pipeline configuration that uses the Google Cloud Trace processor along with the OpenTelemetry Collector's batch processor:
 
 ```yaml
 receivers:
@@ -50,7 +50,7 @@ processors:
   batch:
     timeout: 10s
     send_batch_size: 100
-  cloudtraceenrichment:
+  googlecloudtrace:
     project_id: my-gcp-project
     prefer_traceparent: true
     cache_size: 1000
@@ -66,7 +66,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch, cloudtraceenrichment]
+      processors: [batch, googlecloudtrace]
       exporters: [otlp]
 ```
 

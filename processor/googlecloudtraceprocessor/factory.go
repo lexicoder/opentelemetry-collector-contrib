@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package cloudtraceenrichment
+package googlecloudtraceprocessor
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 const (
 	// The value of "type" key in configuration.
-	typeStr = "cloudtraceenrichment"
+	typeStr = "googlecloudtrace"
 
 	// Default values for the processor configuration
 	defaultCacheSize = 1000

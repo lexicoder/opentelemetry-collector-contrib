@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package cloudtraceenrichment
+package googlecloudtraceprocessor
 
 import (
 	"context"
@@ -69,7 +69,7 @@ func newProcessor(logger *zap.Logger, config *Config, nextConsumer consumer.Trac
 
 func (p *cloudTraceProcessor) Start(ctx context.Context, host component.Host) error {
 	// Initialize metrics reporter
-	meter := noop.NewMeterProvider().Meter("cloudtraceenrichment")
+	meter := noop.NewMeterProvider().Meter("googlecloudtrace")
 	reporter, err := newMetricsReporter(p.logger, meter, p)
 	if err != nil {
 		return fmt.Errorf("failed to create metrics reporter: %w", err)

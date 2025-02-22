@@ -1,4 +1,4 @@
-module github.com/open-telemetry/opentelemetry-collector-contrib/processor/cloudtraceenrichment
+module github.com/open-telemetry/opentelemetry-collector-contrib/processor/googlecloudtraceprocessor
 
 go 1.21
 
