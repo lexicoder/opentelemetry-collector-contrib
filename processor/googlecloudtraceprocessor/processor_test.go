@@ -6,10 +6,6 @@ package googlecloudtraceprocessor
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -23,46 +19,13 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
-
-type testTrace struct {
-	ResourceSpans []struct {
-		Resource struct {
-			Attributes []struct {
-				Key   string `json:"key"`
-				Value struct {
-					StringValue string `json:"stringValue"`
-				} `json:"value"`
-			} `json:"attributes"`
-		} `json:"resource"`
-		ScopeSpans []struct {
-			Scope struct {
-				Name string `json:"name"`
-			} `json:"scope"`
-			Spans []struct {
-				TraceID           string `json:"traceId"`
-				SpanID            string `json:"spanId"`
-				Name              string `json:"name"`
-				Kind              int32  `json:"kind"`
-				StartTimeUnixNano string `json:"startTimeUnixNano"`
-				EndTimeUnixNano   string `json:"endTimeUnixNano"`
-				Attributes        []struct {
-					Key   string `json:"key"`
-					Value struct {
-						StringValue string `json:"stringValue"`
-					} `json:"value"`
-				} `json:"attributes"`
-			} `json:"spans"`
-		} `json:"scopeSpans"`
-	} `json:"resourceSpans"`
-}
 
 type mockCloudTraceClient struct {
 	mockResponse *tracepb.Trace
 }
 
-func (m *mockCloudTraceClient) GetTrace(ctx context.Context, projectID, traceID string) (*tracepb.Trace, error) {
+func (m *mockCloudTraceClient) GetTrace(_ context.Context, _, _ string) (*tracepb.Trace, error) {
 	if m.mockResponse != nil {
 		return m.mockResponse, nil
 	}
@@ -73,111 +36,73 @@ func (m *mockCloudTraceClient) Close() error {
 	return nil
 }
 
-func loadTestData(t *testing.T, filename string) []byte {
-	data, err := os.ReadFile(filepath.Join("testdata", filename))
-	require.NoError(t, err)
-	return data
-}
-
 func loadTestTraces(t *testing.T) ptrace.Traces {
-	data := loadTestData(t, "traces.json")
-	var testData testTrace
-	err := json.Unmarshal(data, &testData)
-	require.NoError(t, err)
-
 	traces := ptrace.NewTraces()
+	resourceSpans := traces.ResourceSpans().AppendEmpty()
 
-	for _, rs := range testData.ResourceSpans {
-		resourceSpans := traces.ResourceSpans().AppendEmpty()
+	// Add resource attributes
+	resourceSpans.Resource().Attributes().PutStr("service.name", "test-service")
 
-		// Set resource attributes
-		for _, attr := range rs.Resource.Attributes {
-			resourceSpans.Resource().Attributes().PutStr(attr.Key, attr.Value.StringValue)
-		}
+	scopeSpans := resourceSpans.ScopeSpans().AppendEmpty()
+	scopeSpans.Scope().SetName("test-scope")
 
-		for _, ss := range rs.ScopeSpans {
-			scopeSpans := resourceSpans.ScopeSpans().AppendEmpty()
-			scopeSpans.Scope().SetName(ss.Scope.Name)
+	// Add first span with traceparent
+	span1 := scopeSpans.Spans().AppendEmpty()
+	traceID, err := hex.DecodeString("0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	span1.SetTraceID(pcommon.TraceID(traceID))
+	spanID, err := hex.DecodeString("0123456789abcdef")
+	require.NoError(t, err)
+	span1.SetSpanID(pcommon.SpanID(spanID))
+	span1.SetName("test-span")
+	span1.SetKind(ptrace.SpanKindClient)
+	span1.Attributes().PutStr(traceparentHeader, "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01")
 
-			for _, span := range ss.Spans {
-				spanData := scopeSpans.Spans().AppendEmpty()
-
-				// Convert trace ID from hex string to bytes
-				traceID, err := hex.DecodeString(span.TraceID)
-				require.NoError(t, err)
-				spanData.SetTraceID(pcommon.TraceID(traceID))
-
-				// Convert span ID from hex string to bytes
-				spanID, err := hex.DecodeString(span.SpanID)
-				require.NoError(t, err)
-				spanData.SetSpanID(pcommon.SpanID(spanID))
-
-				spanData.SetName(span.Name)
-				spanData.SetKind(ptrace.SpanKind(span.Kind))
-
-				// Set start and end time
-				startNanos, err := strconv.ParseInt(span.StartTimeUnixNano, 10, 64)
-				require.NoError(t, err)
-				spanData.SetStartTimestamp(pcommon.Timestamp(startNanos))
-
-				endNanos, err := strconv.ParseInt(span.EndTimeUnixNano, 10, 64)
-				require.NoError(t, err)
-				spanData.SetEndTimestamp(pcommon.Timestamp(endNanos))
-
-				// Set attributes
-				for _, attr := range span.Attributes {
-					spanData.Attributes().PutStr(attr.Key, attr.Value.StringValue)
-				}
-			}
-		}
-	}
+	// Add second span with x-cloud-trace-context
+	span2 := scopeSpans.Spans().AppendEmpty()
+	traceID2, err := hex.DecodeString("fedcba9876543210fedcba9876543210")
+	require.NoError(t, err)
+	span2.SetTraceID(pcommon.TraceID(traceID2))
+	spanID2, err := hex.DecodeString("fedcba9876543210")
+	require.NoError(t, err)
+	span2.SetSpanID(pcommon.SpanID(spanID2))
+	span2.SetName("test-span-2")
+	span2.SetKind(ptrace.SpanKindClient)
+	span2.Attributes().PutStr(cloudTraceContextHeader, "fedcba9876543210fedcba9876543210/fedcba9876543210")
 
 	return traces
 }
 
-func loadCloudTraceResponse(t *testing.T) *tracepb.Trace {
-	data := loadTestData(t, "cloudtrace_response.json")
-	var response struct {
-		ProjectID string `json:"projectId"`
-		TraceID   string `json:"traceId"`
-		Spans     []struct {
-			SpanID    string            `json:"spanId"`
-			Name      string            `json:"name"`
-			StartTime string            `json:"startTime"`
-			EndTime   string            `json:"endTime"`
-			Labels    map[string]string `json:"labels"`
-		} `json:"spans"`
-	}
-	err := json.Unmarshal(data, &response)
-	require.NoError(t, err)
-
-	// Convert to Cloud Trace proto
+func loadCloudTraceResponse() *tracepb.Trace {
+	// Create a test trace with known data
 	trace := &tracepb.Trace{
-		ProjectId: response.ProjectID,
-		TraceId:   response.TraceID,
-		Spans:     make([]*tracepb.TraceSpan, len(response.Spans)),
+		ProjectId: "test-project",
+		TraceId:   "0123456789abcdef0123456789abcdef",
+		Spans: []*tracepb.TraceSpan{
+			{
+				SpanId: 0x0123456789abcdef,
+				Name:   "test-span",
+				Labels: map[string]string{
+					"cloud.region":     "us-central1",
+					"service.version":  "1.0.0",
+					"http.method":      "GET",
+					"http.url":         "https://example.com/api",
+					"http.status_code": "200",
+				},
+			},
+			{
+				SpanId: 0xfedcba9876543210,
+				Name:   "test-span-2",
+				Labels: map[string]string{
+					"cloud.region":     "us-central1",
+					"service.version":  "1.0.0",
+					"http.method":      "POST",
+					"http.url":         "https://example.com/api/v2",
+					"http.status_code": "201",
+				},
+			},
+		},
 	}
-
-	for i, span := range response.Spans {
-		// Convert span ID from hex to uint64
-		spanID, err := strconv.ParseUint(span.SpanID, 16, 64)
-		require.NoError(t, err)
-
-		// Parse timestamps
-		startTime, err := time.Parse(time.RFC3339, span.StartTime)
-		require.NoError(t, err)
-		endTime, err := time.Parse(time.RFC3339, span.EndTime)
-		require.NoError(t, err)
-
-		trace.Spans[i] = &tracepb.TraceSpan{
-			SpanId:    spanID,
-			Name:      span.Name,
-			StartTime: timestamppb.New(startTime),
-			EndTime:   timestamppb.New(endTime),
-			Labels:    span.Labels,
-		}
-	}
-
 	return trace
 }
 
@@ -305,7 +230,7 @@ func TestProcessorConsumeTraces(t *testing.T) {
 				CacheSize:         1000,
 				CacheTTL:          5 * time.Minute,
 			},
-			mockResponse: loadCloudTraceResponse(t),
+			mockResponse: loadCloudTraceResponse(),
 			validateFunc: func(t *testing.T, traces ptrace.Traces) {
 				// Validate that spans were enriched with Cloud Trace data
 				rspans := traces.ResourceSpans()
@@ -317,9 +242,21 @@ func TestProcessorConsumeTraces(t *testing.T) {
 				// Check first span (traceparent)
 				span := spans.At(0)
 				attrs := span.Attributes()
-				val, ok := attrs.Get("cloudtrace.label.cloud.region")
+
+				// Verify enrichment flags
+				enriched, ok := attrs.Get(enrichedAttribute)
 				assert.True(t, ok)
-				assert.Equal(t, "us-central1", val.AsString())
+				assert.True(t, enriched.Bool())
+
+				// Verify Cloud Trace attributes
+				projectID, ok := attrs.Get(projectAttribute)
+				assert.True(t, ok)
+				assert.Equal(t, "test-project", projectID.Str())
+
+				// Verify enriched labels
+				region, ok := attrs.Get("cloudtrace.label.cloud.region")
+				assert.True(t, ok)
+				assert.Equal(t, "us-central1", region.Str())
 			},
 		},
 		{
@@ -330,7 +267,7 @@ func TestProcessorConsumeTraces(t *testing.T) {
 				CacheSize:         1000,
 				CacheTTL:          5 * time.Minute,
 			},
-			mockResponse: loadCloudTraceResponse(t),
+			mockResponse: loadCloudTraceResponse(),
 			validateFunc: func(t *testing.T, traces ptrace.Traces) {
 				// Validate that spans were enriched with Cloud Trace data
 				rspans := traces.ResourceSpans()
@@ -342,9 +279,21 @@ func TestProcessorConsumeTraces(t *testing.T) {
 				// Check second span (x-cloud-trace-context)
 				span := spans.At(1)
 				attrs := span.Attributes()
-				val, ok := attrs.Get("cloudtrace.label.cloud.region")
+
+				// Verify enrichment flags
+				enriched, ok := attrs.Get(enrichedAttribute)
 				assert.True(t, ok)
-				assert.Equal(t, "us-central1", val.AsString())
+				assert.True(t, enriched.Bool())
+
+				// Verify Cloud Trace attributes
+				projectID, ok := attrs.Get(projectAttribute)
+				assert.True(t, ok)
+				assert.Equal(t, "test-project", projectID.Str())
+
+				// Verify enriched labels
+				region, ok := attrs.Get("cloudtrace.label.cloud.region")
+				assert.True(t, ok)
+				assert.Equal(t, "us-central1", region.Str())
 			},
 		},
 	}
@@ -358,12 +307,11 @@ func TestProcessorConsumeTraces(t *testing.T) {
 			mockClient := &mockCloudTraceClient{
 				mockResponse: tt.mockResponse,
 			}
-			processor, err := newProcessorWithClient(logger, tt.config, nextConsumer, mockClient)
-			require.NoError(t, err)
+			processor := newProcessorWithClient(logger, tt.config, nextConsumer, mockClient)
 			require.NotNil(t, processor)
 
 			// Start the processor
-			err = processor.Start(context.Background(), componenttest.NewNopHost())
+			err := processor.Start(context.Background(), componenttest.NewNopHost())
 			require.NoError(t, err)
 
 			// Load test traces
@@ -386,7 +334,7 @@ func TestProcessorConsumeTraces(t *testing.T) {
 }
 
 // newProcessorWithClient creates a new processor with the given client for testing
-func newProcessorWithClient(logger *zap.Logger, config *Config, nextConsumer consumer.Traces, client traceClient) (*cloudTraceProcessor, error) {
+func newProcessorWithClient(logger *zap.Logger, config *Config, nextConsumer consumer.Traces, client traceClient) *cloudTraceProcessor {
 	p := &cloudTraceProcessor{
 		logger:       logger,
 		config:       config,
@@ -394,5 +342,5 @@ func newProcessorWithClient(logger *zap.Logger, config *Config, nextConsumer con
 		client:       client,
 		cache:        lru.New(config.CacheSize),
 	}
-	return p, nil
+	return p
 }

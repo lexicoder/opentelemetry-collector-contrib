@@ -69,6 +69,10 @@ type cloudTraceProcessor struct {
 }
 
 func newProcessor(logger *zap.Logger, config *Config, nextConsumer consumer.Traces) (processor.Traces, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+
 	var opts []option.ClientOption
 	if config.CredentialsFile != "" {
 		opts = append(opts, option.WithCredentialsFile(config.CredentialsFile))
@@ -90,7 +94,7 @@ func newProcessor(logger *zap.Logger, config *Config, nextConsumer consumer.Trac
 	return p, nil
 }
 
-func (p *cloudTraceProcessor) Start(ctx context.Context, host component.Host) error {
+func (p *cloudTraceProcessor) Start(_ context.Context, _ component.Host) error {
 	// Initialize metrics reporter
 	meter := noop.NewMeterProvider().Meter("googlecloudtrace")
 	reporter, err := newMetricsReporter(p.logger, meter, p)
@@ -198,16 +202,20 @@ func (p *cloudTraceProcessor) applyEnrichment(span ptrace.Span, trace *tracepb.T
 	}
 
 	// Find matching span in Cloud Trace data
-	spanID := span.SpanID().String()
+	spanIDBytes := span.SpanID()
+	spanIDInt := uint64(0)
+	for i := 0; i < 8; i++ {
+		spanIDInt = (spanIDInt << 8) | uint64(spanIDBytes[i])
+	}
+
 	for _, cloudSpan := range trace.Spans {
-		if fmt.Sprintf("%d", cloudSpan.SpanId) == spanID {
+		if cloudSpan.SpanId == spanIDInt {
 			// Enrich with Cloud Trace specific data
 			if cloudSpan.Labels != nil {
 				for key, value := range cloudSpan.Labels {
 					attrs.PutStr("cloudtrace.label."+key, value)
 				}
 			}
-
 			break
 		}
 	}

@@ -71,7 +71,7 @@ func newMetricsReporter(logger *zap.Logger, meter metric.Meter, processor *cloud
 	return r, nil
 }
 
-func (r *metricsReporter) recordMetrics(ctx context.Context, startTime time.Time, enrichedCount int) {
+func (r *metricsReporter) recordMetrics(ctx context.Context, startTime time.Time, _ int) {
 	// Record counters
 	r.apiCallsCounter.Add(ctx, atomic.LoadInt64(&r.processor.apiCalls))
 	r.spansEnrichedCounter.Add(ctx, atomic.LoadInt64(&r.processor.spansEnriched))

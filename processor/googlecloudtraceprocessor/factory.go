@@ -41,7 +41,7 @@ func createDefaultConfig() component.Config {
 
 // createTracesProcessor creates a trace processor based on this config.
 func createTracesProcessor(
-	ctx context.Context,
+	_ context.Context,
 	params processor.CreateSettings,
 	cfg component.Config,
 	nextConsumer consumer.Traces,
